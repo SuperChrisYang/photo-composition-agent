@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0f14" />
+    <title>取景构图</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">景</span>
+          <span>取景构图</span>
+        </div>
+        <div class="top-actions">
+          <button class="live-badge" id="liveBadge" type="button">点击开启相机</button>
+          <button class="cam-close" id="closeCameraBtn" type="button">关闭相机</button>
+        </div>
+      </header>
+
+      <section class="stage" id="stage">
+        <video id="camera" autoplay playsinline muted></video>
+        <canvas id="still" hidden></canvas>
+        <div class="grid" id="grid" aria-hidden="true"></div>
+        <button class="subject-marker" id="subjectMarker" aria-label="主体标记"></button>
+        <div class="stage-corner corner-a">A</div>
+        <div class="stage-corner corner-b">B</div>
+        <div class="stage-corner corner-c">C</div>
+        <div class="stage-corner corner-d">D</div>
+      </section>
+
+      <section class="controls">
+        <div class="control-row mode-row" id="modeRow">
+          <button class="mode-btn is-active" data-mode="landscape">风景</button>
+          <button class="mode-btn" data-mode="portrait">人物</button>
+          <button class="mode-btn" data-mode="environment">环境</button>
+          <button class="mode-btn" data-mode="night">夜景</button>
+          <button class="mode-btn" data-mode="architecture">建筑</button>
+        </div>
+
+        <div class="control-row grid-row">
+          <button class="grid-btn is-active" data-grid="thirds">三分</button>
+          <button class="grid-btn" data-grid="golden">黄金</button>
+          <button class="grid-btn" data-grid="diagonal">对角</button>
+          <button class="grid-btn" data-grid="symmetry">对称</button>
+          <button class="grid-btn" data-grid="none">关</button>
+        </div>
+
+        <div class="template-preview" id="templatePreview"></div>
+
+        <div class="capture-row">
+          <button class="icon-btn" id="albumBtn" aria-label="相册">相册</button>
+          <button class="shutter" id="shutterBtn" aria-label="拍摄"></button>
+          <button class="icon-btn" id="retakeBtn" aria-label="重拍" hidden>重拍</button>
+        </div>
+        <button class="analyze-main" id="analyzeBtn">启动场景分析</button>
+        <input id="fileInput" type="file" accept="image/*" hidden />
+      </section>
+
+      <section class="sheet" id="sheet" aria-live="polite">
+        <div class="sheet-head">
+          <div>
+            <span class="sheet-kicker">构图建议</span>
+            <h1 id="scoreTitle">等待分析</h1>
+          </div>
+          <div class="score-ring" id="scoreRing">
+            <span id="scoreValue">--</span>
+          </div>
+        </div>
+
+        <div class="template-card">
+          <div class="template-card-head">
+            <h2>本场景参数模板</h2>
+            <div class="template-actions">
+              <button class="apply-btn" id="applyBtn">应用到相机</button>
+              <button class="apply-btn" id="planShootBtn">按方案拍摄</button>
+            </div>
+          </div>
+          <div class="template-grid" id="templateGrid"></div>
+          <p class="apply-status" id="applyStatus"></p>
+        </div>
+
+        <div class="result-block">
+          <h2>分析结论</h2>
+          <p id="compositionText"></p>
+        </div>
+
+        <div class="result-grid">
+          <section class="result-card">
+            <h2>参数配置</h2>
+            <ul id="paramsList"></ul>
+          </section>
+          <section class="result-card">
+            <h2>机位调整</h2>
+            <ul id="positionList"></ul>
+          </section>
+          <section class="result-card">
+            <h2>后期修图</h2>
+            <ul id="editList"></ul>
+          </section>
+        </div>
+
+        <div class="result-block next-shot">
+          <h2>下次同场景参数模板</h2>
+          <div class="next-grid" id="nextTemplateGrid"></div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
