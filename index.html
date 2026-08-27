@@ -38,7 +38,8 @@
 
       <section class="controls">
         <div class="control-row mode-row" id="modeRow">
-          <button class="mode-btn is-active" data-mode="landscape">风景</button>
+          <button class="mode-btn is-active" data-mode="auto">自动</button>
+          <button class="mode-btn" data-mode="landscape">风景</button>
           <button class="mode-btn" data-mode="portrait">人物</button>
           <button class="mode-btn" data-mode="environment">环境</button>
           <button class="mode-btn" data-mode="night">夜景</button>
@@ -96,6 +97,15 @@
         <div class="result-block">
           <h2>分析结论</h2>
           <p id="compositionText"></p>
+        </div>
+
+        <div class="result-block guide-block">
+          <h2>构图知识</h2>
+          <p id="sceneGuideText"></p>
+          <details class="guide-details">
+            <summary>查看完整构图指南</summary>
+            <pre id="guideContent"></pre>
+          </details>
         </div>
 
         <div class="result-grid">

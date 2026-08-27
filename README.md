@@ -17,6 +17,8 @@
 - 实时分析：取景过程中自动更新构图建议
 - 动态构图引导线：根据场景在取景画面上显示主体目标与引导线
 - 导出/分享建议文本
+- 嵌入摄影构图 skill：`skills/photography-composition.md`，按识别场景展示对应构图知识
+- 自动识别场景：默认“自动”模式根据画面判断人物/风景/环境/夜景/建筑；手动选择场景时以手动选择优先
 
 ## 运行
 
@@ -43,6 +45,8 @@ node tools/serve-https.mjs
 点击“启动场景分析”后按钮会显示“分析中”并暂时禁用；分析完成后显示“分析完成”，随后恢复为“启动场景分析”，可以再次分析。
 
 开启“实时分析”后，取景画面会每 1.5 秒自动采样一次并刷新建议；点击“导出”可以把当前方案通过系统分享或复制为文本。
+
+构图知识来自 [photography-composition skill](/Users/yangshaofei/.agents/skills/photography-composition/SKILL.md)，已嵌入到 `skills/photography-composition.md`，分析结果会显示当前场景对应的构图速查，并可展开查看完整指南。
 
 ## 生产版智能体架构
 

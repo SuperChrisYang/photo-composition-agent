@@ -21,7 +21,7 @@ const guidePoint = document.querySelector('#guidePoint')
 const shareBtn = document.querySelector('#shareBtn')
 
 const state = {
-  mode: 'landscape',
+  mode: 'auto',
   grid: 'thirds',
   subject: null,
   stream: null,
@@ -30,11 +30,14 @@ const state = {
   analyzing: false,
   live: false,
   liveTimer: null,
+  detectedMode: 'landscape',
+  activeMode: 'landscape',
   settings: null,
   lastResult: null,
 }
 
 const MODE_COPY = {
+  auto: '自动识别',
   landscape: '风景',
   portrait: '人物',
   environment: '环境',
@@ -51,6 +54,14 @@ const GRID_PRESETS = {
 }
 
 const MODE_TEMPLATES = {
+  auto: {
+    baseline: { iso: 100, shutter: '1/250', ev: 0, whiteBalance: '自动', focus: '自动', hdr: '自动' },
+    composition: ['根据当前画面自动判断主体与层次'],
+    params: ['ISO 100，优先保证画质', '快门 1/250 秒，日常光线通用', 'EV 0，白平衡自动', '对焦自动，点击画面锁定主体'],
+    position: ['先移动双脚找角度，再考虑参数', '让主体靠近三分点或引导线'],
+    edit: ['先确定主体，再决定裁剪', '保持画面简洁，减少杂物'],
+    next: { iso: 100, shutter: '1/250', ev: 0, whiteBalance: '自动', focus: '自动', hdr: '自动', tip: '根据自动识别结果使用对应场景模板' },
+  },
   landscape: {
     baseline: { iso: 100, shutter: '1/250', ev: 0, whiteBalance: '自动', focus: '无限远', hdr: '关' },
     composition: ['用前景或道路形成纵深感，让画面有近中远三层'],
@@ -91,6 +102,14 @@ const MODE_TEMPLATES = {
     edit: ['校正透视，拉直垂直线', '增强结构线条与阴影对比', '裁剪掉抢眼的路牌或行人'],
     next: { iso: 100, shutter: '1/250', ev: 0, whiteBalance: '日光', focus: '中心', hdr: '开', tip: '顺光时段建筑细节最清楚' },
   },
+}
+
+const SCENE_GUIDE_FALLBACK = {
+  landscape: '地平线放上/下 1/3 处；前景 + 中景 + 远景三层结构；用道路或河流作引导线；水面倒影可用对称构图。',
+  portrait: '眼睛放在画面上 1/3 线；视线/面朝方向留白；避免从手腕、膝盖、脚踝等关节处切人；头顶留白略多于脚底。',
+  environment: '引导线 + 框架构图抓瞬间；低角度或平视；警惕电线杆、广告牌、路人等背景干扰。',
+  night: '光线优先，构图让灯光反光面与暗部形成对比；使用稳定支撑，避免手抖。',
+  architecture: '对称构图 + 仰拍增强气势；利用水面、玻璃倒影；注意横平竖直，垂直线不能歪。',
 }
 
 const GUIDE_LINES = {
@@ -357,7 +376,9 @@ function analyze() {
   let rSum = 0
   let gSum = 0
   let bSum = 0
-  let edgeSum = 0
+  let vEdge = 0
+  let hEdge = 0
+  let skinCount = 0
 
   for (let y = 0; y < 120; y += 1) {
     for (let x = 0; x < 160; x += 1) {
@@ -371,6 +392,7 @@ function analyze() {
       rSum += r
       gSum += g
       bSum += b
+      if (r > 95 && g > 40 && b > 20 && r > g && g > b && r - g > 15) skinCount += 1
     }
   }
 
@@ -388,11 +410,15 @@ function analyze() {
       const i = y * 160 + x
       const dx = Math.abs(luma[i + 1] - luma[i - 1])
       const dy = Math.abs(luma[i + 160] - luma[i - 160])
-      edgeSum += dx + dy
+      vEdge += dx
+      hEdge += dy
     }
   }
 
+  const edgeSum = vEdge + hEdge
   const edgeDensity = edgeSum / (119 * 158) / 510
+  const verticalRatio = edgeSum === 0 ? 0.5 : vEdge / edgeSum
+  const skinRatio = skinCount / count
   const exposure = avg < 70 ? 'underexposed' : avg > 185 ? 'overexposed' : 'balanced'
   const contrast = std < 32 ? 'low' : std > 72 ? 'high' : 'balanced'
   const edges = edgeDensity < 0.06 ? 'sparse' : edgeDensity > 0.18 ? 'busy' : 'balanced'
@@ -401,9 +427,13 @@ function analyze() {
   const subject = state.subject ?? { x: 0.5, y: 0.5 }
   const target = nearestThirdIntersection(subject.x, subject.y)
   const subjectOffset = target.distance
+  const detected = detectScene({ avg, skinRatio, verticalRatio, edges, contrast })
+  const activeMode = state.mode === 'auto' ? detected : state.mode
+  state.detectedMode = detected
+  state.activeMode = activeMode
 
   const result = buildAdvice({
-    mode: state.mode,
+    mode: activeMode,
     exposure,
     contrast,
     edges,
@@ -436,6 +466,14 @@ async function runAnalysis({ live = false } = {}) {
       }, 1600)
     }
   }
+}
+
+function detectScene({ avg, skinRatio, verticalRatio, edges, contrast }) {
+  if (avg < 60) return 'night'
+  if (skinRatio > 0.015) return 'portrait'
+  if (verticalRatio > 0.58 && contrast !== 'low') return 'architecture'
+  if (edges === 'busy') return 'environment'
+  return 'landscape'
 }
 
 function buildAdvice({ mode, exposure, contrast, edges, colorTone, subjectOffset, subject, target }) {
@@ -535,6 +573,7 @@ function buildAdvice({ mode, exposure, contrast, edges, colorTone, subjectOffset
 
   return {
     score: Math.max(58, Math.min(98, score)),
+    mode,
     conclusion,
     composition: composition.slice(0, 4),
     params: params.slice(0, 6),
@@ -570,10 +609,50 @@ function templateCells(template) {
   ]
 }
 
-function renderTemplate(mode) {
-  const template = MODE_TEMPLATES[mode]
+const SCENE_GUIDE_HEADING = {
+  landscape: '### 风景',
+  portrait: '### 人像',
+  environment: '### 街拍',
+  night: '## 核心心法',
+  architecture: '### 建筑',
+}
+
+let compositionGuide = ''
+
+function extractSection(markdown, heading) {
+  const lines = markdown.split('\n')
+  const start = lines.findIndex((line) => line.trim().startsWith(heading))
+  if (start < 0) return ''
+  let end = lines.findIndex((line, index) => index > start && /^#{2,3} /.test(line.trim()))
+  if (end < 0) end = lines.length
+  return lines.slice(start + 1, end).join('\n').trim()
+}
+
+function sceneGuideForMode(mode) {
+  const fallback = SCENE_GUIDE_FALLBACK[mode] ?? SCENE_GUIDE_FALLBACK.landscape
+  if (!compositionGuide) return fallback
+  const heading = SCENE_GUIDE_HEADING[mode]
+  return heading ? extractSection(compositionGuide, heading) || fallback : fallback
+}
+
+async function loadGuide() {
+  try {
+    const response = await fetch('skills/photography-composition.md')
+    if (!response.ok) return
+    compositionGuide = await response.text()
+    const content = document.querySelector('#guideContent')
+    if (content) content.textContent = compositionGuide
+  } catch {
+    // File access fallback: keep the built-in scene guidance.
+  }
+}
+
+function renderTemplate(mode, detected = mode) {
+  const templateMode = mode === 'auto' ? (detected || state.detectedMode || 'landscape') : mode
+  const template = MODE_TEMPLATES[templateMode]
   const preview = document.querySelector('#templatePreview')
-  preview.innerHTML = `<span>${MODE_COPY[mode]}模板</span><strong>ISO ${template.baseline.iso}</strong><strong>${template.baseline.shutter}</strong><strong>EV ${formatEv(template.baseline.ev)}</strong><strong>${template.baseline.whiteBalance}</strong>`
+  const label = mode === 'auto' ? `自动识别 · ${MODE_COPY[templateMode]}` : `${MODE_COPY[templateMode]}模板`
+  preview.innerHTML = `<span>${label}</span><strong>ISO ${template.baseline.iso}</strong><strong>${template.baseline.shutter}</strong><strong>EV ${formatEv(template.baseline.ev)}</strong><strong>${template.baseline.whiteBalance}</strong>`
   document.querySelector('#templateGrid').replaceChildren(...templateCells(template.baseline).map(([label, value]) => {
     const div = document.createElement('div')
     div.className = 'template-cell'
@@ -585,8 +664,10 @@ function renderTemplate(mode) {
 function render(result) {
   state.lastResult = result
   renderGuide(result)
+  renderTemplate(state.mode === 'auto' ? 'auto' : state.mode, result.mode)
   document.querySelector('#scoreTitle').textContent = result.conclusion
   document.querySelector('#compositionText').textContent = result.composition.join('；')
+  document.querySelector('#sceneGuideText').textContent = sceneGuideForMode(result.mode)
   document.querySelector('#scoreValue').textContent = String(result.score)
   document.querySelector('#scoreRing').style.setProperty('--score', `${result.score}%`)
 
@@ -622,7 +703,8 @@ function renderGuide(result) {
   guidePoint.setAttribute('cx', String(target.x * 100))
   guidePoint.setAttribute('cy', String(target.y * 100))
 
-  const lines = GUIDE_LINES[state.mode] ?? GUIDE_LINES.landscape
+  const guideMode = result.mode ?? state.activeMode ?? state.mode
+  const lines = GUIDE_LINES[guideMode] ?? GUIDE_LINES.landscape
   const [a, b] = lines
   guideLineA.setAttribute('x1', String(a[0]))
   guideLineA.setAttribute('y1', String(a[1]))
@@ -690,6 +772,7 @@ async function applyToCamera() {
   }
 }
 
-renderTemplate(state.mode)
+renderTemplate(state.mode, state.detectedMode)
+void loadGuide()
 liveBadge.textContent = '点击开启相机'
 window.addEventListener('beforeunload', stopCamera)
