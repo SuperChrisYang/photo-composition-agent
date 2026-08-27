@@ -1,5 +1,6 @@
 import { createServer } from 'node:https'
 import { readFile } from 'node:fs/promises'
+import { networkInterfaces } from 'node:os'
 import { extname, join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -36,5 +37,10 @@ const server = createServer({
 })
 
 server.listen(port, '0.0.0.0', () => {
-  console.log(`HTTPS server: https://192.168.1.28:${port}/`)
+  const addresses = Object.values(networkInterfaces())
+    .flat()
+    .filter((item) => item && item.family === 'IPv4' && !item.internal)
+    .map((item) => item.address)
+  console.log(`HTTPS server: https://127.0.0.1:${port}/`)
+  for (const address of addresses) console.log(`HTTPS server: https://${address}:${port}/`)
 })

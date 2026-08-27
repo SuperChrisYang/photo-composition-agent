@@ -32,7 +32,7 @@ open index.html
 node tools/serve-https.mjs
 ```
 
-手机访问 `https://<电脑IP>:8443/`，首次打开时信任自签名证书后即可调用摄像头。
+手机访问 `https://<电脑IP>:8443/`，首次打开时信任自签名证书后即可调用摄像头。启动 HTTPS 服务时会自动打印当前所有局域网 IP；如果之前的 IP 打不开，请改用服务启动日志里最新的 `https://192.168.1.x:8443/` 地址。
 
 桌面调试也可以直接打开 `index.html`，或用 `python3 -m http.server 8000` 提供 HTTP 版本（桌面 localhost 可用摄像头，手机 HTTP 会被浏览器限制）。
 
