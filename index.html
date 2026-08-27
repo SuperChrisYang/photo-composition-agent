@@ -24,6 +24,11 @@
         <video id="camera" autoplay playsinline muted></video>
         <canvas id="still" hidden></canvas>
         <div class="grid" id="grid" aria-hidden="true"></div>
+        <svg class="guide-svg" id="guideSvg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true" hidden>
+          <line class="guide-line" id="guideLineA" x1="0" y1="100" x2="100" y2="0" />
+          <line class="guide-line" id="guideLineB" x1="0" y1="0" x2="100" y2="100" />
+          <circle class="guide-point" id="guidePoint" cx="50" cy="50" r="2.4" />
+        </svg>
         <button class="subject-marker" id="subjectMarker" aria-label="主体标记"></button>
         <div class="stage-corner corner-a">A</div>
         <div class="stage-corner corner-b">B</div>
@@ -50,6 +55,11 @@
 
         <div class="template-preview" id="templatePreview"></div>
 
+        <div class="live-row">
+          <button class="live-toggle" id="liveToggle" type="button" aria-pressed="false">实时分析</button>
+          <span class="live-hint" id="liveHint">取景时自动更新建议</span>
+        </div>
+
         <div class="capture-row">
           <button class="icon-btn" id="albumBtn" aria-label="相册">相册</button>
           <button class="shutter" id="shutterBtn" aria-label="拍摄"></button>
@@ -68,6 +78,7 @@
           <div class="score-ring" id="scoreRing">
             <span id="scoreValue">--</span>
           </div>
+          <button class="share-btn" id="shareBtn" type="button">导出</button>
         </div>
 
         <div class="template-card">

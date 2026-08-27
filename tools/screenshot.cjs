@@ -37,6 +37,9 @@ app.whenReady().then(async () => {
     text: document.body.innerText,
     analyzeButton: document.querySelector('#analyzeBtn').textContent,
     analyzeDisabled: document.querySelector('#analyzeBtn').disabled,
+    guideHidden: document.querySelector('#guideSvg').hidden,
+    guidePoint: document.querySelector('#guidePoint').getAttribute('cx') + ',' + document.querySelector('#guidePoint').getAttribute('cy'),
+    liveButton: document.querySelector('#liveToggle').textContent,
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
     sheetHeight: document.querySelector('.sheet').getBoundingClientRect().height

@@ -12,6 +12,13 @@ const applyBtn = document.querySelector('#applyBtn')
 const planShootBtn = document.querySelector('#planShootBtn')
 const closeCameraBtn = document.querySelector('#closeCameraBtn')
 const liveBadge = document.querySelector('#liveBadge')
+const liveToggle = document.querySelector('#liveToggle')
+const liveHint = document.querySelector('#liveHint')
+const guideSvg = document.querySelector('#guideSvg')
+const guideLineA = document.querySelector('#guideLineA')
+const guideLineB = document.querySelector('#guideLineB')
+const guidePoint = document.querySelector('#guidePoint')
+const shareBtn = document.querySelector('#shareBtn')
 
 const state = {
   mode: 'landscape',
@@ -21,7 +28,10 @@ const state = {
   frozen: false,
   starting: false,
   analyzing: false,
+  live: false,
+  liveTimer: null,
   settings: null,
+  lastResult: null,
 }
 
 const MODE_COPY = {
@@ -83,6 +93,14 @@ const MODE_TEMPLATES = {
   },
 }
 
+const GUIDE_LINES = {
+  landscape: [[0, 85, 100, 15], [0, 25, 40, 0]],
+  portrait: [[0, 33, 100, 33], [18, 0, 18, 100]],
+  environment: [[0, 78, 100, 18], [100, 68, 0, 32]],
+  night: [[0, 18, 100, 82], [0, 72, 100, 30]],
+  architecture: [[50, 0, 50, 100], [0, 50, 100, 50]],
+}
+
 async function startCamera() {
   if (state.starting) return
   state.starting = true
@@ -122,6 +140,7 @@ function setFrozen(frozen) {
 }
 
 function drawFrame(source) {
+  stopLive()
   still.width = source.videoWidth || source.naturalWidth || 1280
   still.height = source.videoHeight || source.naturalHeight || 960
   const ctx = still.getContext('2d')
@@ -144,7 +163,13 @@ liveBadge.addEventListener('click', async () => {
   if (!state.stream || !video.videoWidth) await startCamera()
 })
 
+liveToggle.addEventListener('click', () => {
+  if (state.live) stopLive()
+  else void startLive()
+})
+
 retakeBtn.addEventListener('click', () => {
+  stopLive()
   setFrozen(false)
   startCamera()
 })
@@ -219,7 +244,38 @@ planShootBtn.addEventListener('click', async () => {
   if (state.stream && video.videoWidth && !state.frozen) drawFrame(video)
   else if (!state.stream) await startCamera()
 })
+shareBtn.addEventListener('click', async () => {
+  const status = document.querySelector('#applyStatus')
+  if (!state.lastResult) {
+    status.textContent = '请先完成一次场景分析。'
+    return
+  }
+  const result = state.lastResult
+  const text = [
+    `构图：${result.composition.join('；')}`,
+    `参数：${result.params.join('；')}`,
+    `机位：${result.position.join('；')}`,
+    `修图：${result.edit.join('；')}`,
+    `下次同场景：ISO ${result.next.iso} / ${result.next.shutter} / EV ${formatEv(result.next.ev)} / ${result.next.whiteBalance} / ${result.next.focus} / HDR ${result.next.hdr}`,
+  ].join('\n')
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: '拍照构图方案', text })
+      status.textContent = '方案已分享。'
+      return
+    } catch (error) {
+      if (error?.name === 'AbortError') return
+    }
+  }
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text)
+    status.textContent = '方案已复制到剪贴板。'
+  } else {
+    status.textContent = text
+  }
+})
 closeCameraBtn.addEventListener('click', () => {
+  stopLive()
   stopCamera()
   video.hidden = true
   still.hidden = true
@@ -227,6 +283,47 @@ closeCameraBtn.addEventListener('click', () => {
   retakeBtn.hidden = true
   liveBadge.textContent = '点击开启相机'
 })
+
+async function startLive() {
+  if (state.live) return
+  if (!state.stream || !video.videoWidth) {
+    await startCamera()
+    if (!state.stream || !video.videoWidth) return
+  }
+  state.live = true
+  liveToggle.classList.add('is-active')
+  liveToggle.textContent = '实时分析中'
+  liveHint.textContent = '正在分析当前取景'
+  void liveTick()
+}
+
+function stopLive() {
+  state.live = false
+  clearTimeout(state.liveTimer)
+  state.liveTimer = null
+  liveToggle.classList.remove('is-active')
+  liveToggle.textContent = '实时分析'
+  liveHint.textContent = '取景时自动更新建议'
+}
+
+function captureLiveFrame() {
+  if (!video.videoWidth) return
+  still.width = video.videoWidth
+  still.height = video.videoHeight
+  const ctx = still.getContext('2d')
+  ctx.drawImage(video, 0, 0, still.width, still.height)
+}
+
+async function liveTick() {
+  if (!state.live) return
+  if (!state.stream || !video.videoWidth || state.frozen) {
+    stopLive()
+    return
+  }
+  captureLiveFrame()
+  await runAnalysis({ live: true })
+  state.liveTimer = setTimeout(liveTick, 1500)
+}
 
 function nearestThirdIntersection(x, y) {
   const points = [
@@ -313,30 +410,35 @@ function analyze() {
     colorTone,
     subjectOffset,
     subject,
+    target,
   })
   state.settings = result.template
   render(result)
 }
 
-async function runAnalysis() {
+async function runAnalysis({ live = false } = {}) {
   if (state.analyzing) return
   state.analyzing = true
-  analyzeBtn.disabled = true
-  analyzeBtn.textContent = '分析中'
-  await new Promise((resolve) => setTimeout(resolve, 420))
+  if (!live) {
+    analyzeBtn.disabled = true
+    analyzeBtn.textContent = '分析中'
+    await new Promise((resolve) => setTimeout(resolve, 420))
+  }
   try {
     analyze()
-    analyzeBtn.textContent = '分析完成'
+    if (!live) analyzeBtn.textContent = '分析完成'
   } finally {
     state.analyzing = false
-    analyzeBtn.disabled = false
-    setTimeout(() => {
-      if (!state.analyzing) analyzeBtn.textContent = '启动场景分析'
-    }, 1600)
+    if (!live) {
+      analyzeBtn.disabled = false
+      setTimeout(() => {
+        if (!state.analyzing) analyzeBtn.textContent = '启动场景分析'
+      }, 1600)
+    }
   }
 }
 
-function buildAdvice({ mode, exposure, contrast, edges, colorTone, subjectOffset, subject }) {
+function buildAdvice({ mode, exposure, contrast, edges, colorTone, subjectOffset, subject, target }) {
   const base = MODE_TEMPLATES[mode]
   const composition = [...base.composition]
   const params = [...base.params]
@@ -440,6 +542,7 @@ function buildAdvice({ mode, exposure, contrast, edges, colorTone, subjectOffset
     edit: edit.slice(0, 5),
     template,
     next,
+    target: { x: target.point[0], y: target.point[1] },
   }
 }
 
@@ -480,6 +583,8 @@ function renderTemplate(mode) {
 }
 
 function render(result) {
+  state.lastResult = result
+  renderGuide(result)
   document.querySelector('#scoreTitle').textContent = result.conclusion
   document.querySelector('#compositionText').textContent = result.composition.join('；')
   document.querySelector('#scoreValue').textContent = String(result.score)
@@ -509,6 +614,24 @@ function render(result) {
   }))
 
   document.querySelector('#applyStatus').textContent = ''
+}
+
+function renderGuide(result) {
+  guideSvg.hidden = false
+  const target = result.target ?? { x: 1 / 3, y: 1 / 3 }
+  guidePoint.setAttribute('cx', String(target.x * 100))
+  guidePoint.setAttribute('cy', String(target.y * 100))
+
+  const lines = GUIDE_LINES[state.mode] ?? GUIDE_LINES.landscape
+  const [a, b] = lines
+  guideLineA.setAttribute('x1', String(a[0]))
+  guideLineA.setAttribute('y1', String(a[1]))
+  guideLineA.setAttribute('x2', String(a[2]))
+  guideLineA.setAttribute('y2', String(a[3]))
+  guideLineB.setAttribute('x1', String(b[0]))
+  guideLineB.setAttribute('y1', String(b[1]))
+  guideLineB.setAttribute('x2', String(b[2]))
+  guideLineB.setAttribute('y2', String(b[3]))
 }
 
 function fillList(list, items) {
